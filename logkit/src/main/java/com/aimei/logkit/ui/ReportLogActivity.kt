@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.aimei.logkit.EmailNotifier
 import com.aimei.logkit.KLog
 import com.aimei.logkit.LogFileManager
 import com.aimei.logkit.R
@@ -91,13 +92,27 @@ class ReportLogActivity : AppCompatActivity() {
                 val result = uploader.upload(zipFile, description)
                 result.onSuccess { url ->
                     val config = KLog.getConfig()
+                    val extra = config.deviceInfoProvider()
                     WxWorkNotifier.notify(
                         webhookKey = config.wxWebhookKey,
                         description = description,
                         fileUrl = url,
                         fileSizeBytes = zipFile.length(),
-                        extraInfo = config.deviceInfoProvider()
+                        extraInfo = extra
                     )
+                    config.emailConfig?.let { emailConfig ->
+                        try {
+                            EmailNotifier.send(
+                                config = emailConfig,
+                                description = description,
+                                fileUrl = url,
+                                zipFile = zipFile,
+                                extraInfo = extra
+                            )
+                        } catch (e: Exception) {
+                            KLog.e("Email", "邮件发送失败: ${e.message}")
+                        }
+                    }
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
                             this@ReportLogActivity,
