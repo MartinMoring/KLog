@@ -1,0 +1,3 @@
+-keep class com.aimei.logkit.KLog { *; }
+-keep class com.aimei.logkit.KLogConfig { *; }
+-keep interface com.aimei.logkit.LogUploader { *; }

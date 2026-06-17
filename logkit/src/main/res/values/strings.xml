@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logkit_title">日志上报</string>
+    <string name="logkit_dialog_title">上报文件：%s</string>
+    <string name="logkit_hint_description">请描述问题（requirePhone=true 时必须包含手机号）</string>
+    <string name="logkit_confirm">确定上传</string>
+    <string name="logkit_cancel">取消</string>
+    <string name="logkit_uploading">上传中…</string>
+    <string name="logkit_upload_success">上传成功，企微通知已发送</string>
+    <string name="logkit_upload_failed">上传失败：%s</string>
+    <string name="logkit_phone_required">描述中必须包含有效手机号（1开头11位）</string>
+    <string name="logkit_desc_empty">描述不能为空</string>
+    <string name="logkit_no_uploader">未配置上传器，请先调用 KLog.registerUploader()</string>
+    <string name="logkit_no_files">暂无日志文件</string>
+</resources>
