@@ -221,6 +221,35 @@ KLog.init(
 
 ---
 
+## 常见问题
+
+### META-INF 资源冲突
+
+接入后 Build 报错：
+
+```
+> 2 files found with path 'META-INF/NOTICE.md' from inputs:
+    - android-mail-1.6.7.jar
+    - android-activation-1.6.7.jar
+```
+
+在**你的应用**的 `app/build.gradle` 中添加排除规则：
+
+```gradle
+android {
+    packaging {
+        resources {
+            excludes += 'META-INF/NOTICE.md'
+            excludes += 'META-INF/LICENSE.md'
+            excludes += 'META-INF/NOTICE'
+            excludes += 'META-INF/LICENSE'
+        }
+    }
+}
+```
+
+---
+
 ## 混淆
 
 SDK 已通过 `consumer-rules.pro` 自动保护公开 API，无需手动添加混淆规则。
