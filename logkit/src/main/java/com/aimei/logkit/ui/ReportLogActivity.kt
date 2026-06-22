@@ -16,6 +16,8 @@ import com.aimei.logkit.R
 import com.aimei.logkit.WxWorkNotifier
 import com.aimei.logkit.databinding.ActivityReportLogBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -43,31 +45,40 @@ class ReportLogActivity : AppCompatActivity() {
     }
 
     private fun showUploadDialog(file: File) {
+        val requirePhone = KLog.getConfig().requirePhone
         val editText = EditText(this).apply {
-            hint = getString(R.string.logkit_hint_description)
+            hint = if (requirePhone) {
+                getString(R.string.logkit_hint_description_phone_required)
+            } else {
+                getString(R.string.logkit_hint_description)
+            }
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
             minLines = 3
             maxLines = 6
             setPadding(48, 24, 48, 24)
         }
 
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(getString(R.string.logkit_dialog_title, file.name))
             .setView(editText)
-            .setPositiveButton(R.string.logkit_confirm) { _, _ ->
-                val desc = editText.text.toString().trim()
-                if (!isValidDescription(desc)) {
-                    val msg = if (KLog.getConfig().requirePhone)
-                        getString(R.string.logkit_phone_required)
-                    else
-                        getString(R.string.logkit_desc_empty)
-                    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                startUpload(file, desc)
-            }
+            // 正向按钮先不传监听，下面手动绑定：校验失败时只弹 Toast，不关闭弹框
+            .setPositiveButton(R.string.logkit_confirm, null)
             .setNegativeButton(R.string.logkit_cancel, null)
             .show()
+
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val desc = editText.text.toString().trim()
+            if (!isValidDescription(desc)) {
+                val msg = if (requirePhone)
+                    getString(R.string.logkit_phone_required)
+                else
+                    getString(R.string.logkit_desc_empty)
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            dialog.dismiss()
+            startUpload(file, desc)
+        }
     }
 
     private fun isValidDescription(desc: String): Boolean {
@@ -78,7 +89,9 @@ class ReportLogActivity : AppCompatActivity() {
 
     private fun startUpload(file: File, description: String) {
         val uploader = KLog.getUploader()
-        if (uploader == null) {
+        val config = KLog.getConfig()
+        // 未注册 uploader 时，只要配置了邮件就仍走邮箱上报；两者都没配才提示无法上报
+        if (uploader == null && config.emailConfig == null) {
             Toast.makeText(this, R.string.logkit_no_uploader, Toast.LENGTH_LONG).show()
             return
         }
@@ -89,36 +102,62 @@ class ReportLogActivity : AppCompatActivity() {
             var zipFile: File? = null
             try {
                 zipFile = LogFileManager.compressToZip(file, KLog.getLogDir())
-                val result = uploader.upload(zipFile, description)
+                // 未注册 uploader 时跳过服务器上传，没有公网 URL，仅走邮件上报
+                val result: Result<String?> = uploader?.upload(zipFile, description) ?: Result.success(null)
                 result.onSuccess { url ->
-                    val config = KLog.getConfig()
                     val extra = config.deviceInfoProvider()
-                    WxWorkNotifier.notify(
-                        webhookKey = config.wxWebhookKey,
-                        description = description,
-                        fileUrl = url,
-                        fileSizeBytes = zipFile.length(),
-                        extraInfo = extra
-                    )
-                    config.emailConfig?.let { emailConfig ->
-                        try {
-                            EmailNotifier.send(
-                                config = emailConfig,
+
+                    // 企微通知和邮件发送并行执行、互不阻塞，单独失败不影响最终结果；
+                    // 没有公网 URL（未配置 uploader）时不发送企微通知
+                    val (wxOk, emailResult) = coroutineScope {
+                        val wxJob = async {
+                            if (url == null) true
+                            else WxWorkNotifier.notify(
+                                webhookKey = config.wxWebhookKey,
                                 description = description,
                                 fileUrl = url,
-                                zipFile = zipFile,
+                                fileSizeBytes = zipFile.length(),
                                 extraInfo = extra
                             )
-                        } catch (e: Exception) {
-                            KLog.e("Email", "邮件发送失败: ${e.message}")
                         }
+                        val emailJob = async {
+                            config.emailConfig?.let { emailConfig ->
+                                runCatching {
+                                    EmailNotifier.send(
+                                        config = emailConfig,
+                                        description = description,
+                                        fileUrl = url,
+                                        zipFile = zipFile,
+                                        extraInfo = extra
+                                    )
+                                }.onFailure { e -> KLog.e("Email", "邮件发送失败: ${e.message}") }
+                            }
+                        }
+                        wxJob.await() to emailJob.await()
                     }
+
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(
-                            this@ReportLogActivity,
-                            R.string.logkit_upload_success,
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        val msg = if (url == null) {
+                            // 未配置 uploader：邮件是唯一上报渠道，结果直接反映邮件发送状态
+                            emailResult?.fold(
+                                onSuccess = { getString(R.string.logkit_email_only_success) },
+                                onFailure = { e -> getString(R.string.logkit_email_failed, e.message ?: "") }
+                            ) ?: getString(R.string.logkit_no_uploader)
+                        } else {
+                            val issues = mutableListOf<String>()
+                            if (config.wxWebhookKey.isNotBlank() && !wxOk) {
+                                issues += getString(R.string.logkit_notify_wx_failed)
+                            }
+                            if (emailResult?.isFailure == true) {
+                                issues += getString(R.string.logkit_notify_email_failed)
+                            }
+                            if (issues.isEmpty()) {
+                                getString(R.string.logkit_upload_success)
+                            } else {
+                                getString(R.string.logkit_upload_success_partial, issues.joinToString("，"))
+                            }
+                        }
+                        Toast.makeText(this@ReportLogActivity, msg, Toast.LENGTH_LONG).show()
                     }
                 }.onFailure { e ->
                     withContext(Dispatchers.Main) {

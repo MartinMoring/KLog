@@ -2,11 +2,17 @@
 <resources>
     <string name="logkit_title">日志上报</string>
     <string name="logkit_dialog_title">上报文件：%s</string>
-    <string name="logkit_hint_description">请描述问题（requirePhone=true 时必须包含手机号）</string>
+    <string name="logkit_hint_description">请描述问题</string>
+    <string name="logkit_hint_description_phone_required">请描述问题，需包含有效手机号（1开头11位）</string>
     <string name="logkit_confirm">确定上传</string>
     <string name="logkit_cancel">取消</string>
     <string name="logkit_uploading">上传中…</string>
-    <string name="logkit_upload_success">上传成功，企微通知已发送</string>
+    <string name="logkit_upload_success">上传成功</string>
+    <string name="logkit_upload_success_partial">上传成功（%s）</string>
+    <string name="logkit_notify_wx_failed">企微通知失败</string>
+    <string name="logkit_notify_email_failed">邮件发送失败</string>
+    <string name="logkit_email_only_success">已通过邮件上报</string>
+    <string name="logkit_email_failed">邮件发送失败：%s</string>
     <string name="logkit_upload_failed">上传失败：%s</string>
     <string name="logkit_phone_required">描述中必须包含有效手机号（1开头11位）</string>
     <string name="logkit_desc_empty">描述不能为空</string>

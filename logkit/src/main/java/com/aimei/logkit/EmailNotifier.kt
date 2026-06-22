@@ -22,7 +22,7 @@ internal object EmailNotifier {
     fun send(
         config: EmailConfig,
         description: String,
-        fileUrl: String,
+        fileUrl: String?,
         zipFile: File,
         extraInfo: Map<String, String>
     ) {
@@ -63,16 +63,18 @@ internal object EmailNotifier {
 
     private fun buildMultipart(
         description: String,
-        fileUrl: String,
+        fileUrl: String?,
         extraInfo: Map<String, String>,
         zipFile: File
     ): MimeMultipart {
         val body = buildString {
             appendLine("【问题描述】")
             appendLine(description)
-            appendLine()
-            appendLine("【日志下载地址】")
-            appendLine(fileUrl)
+            if (!fileUrl.isNullOrBlank()) {
+                appendLine()
+                appendLine("【日志下载地址】")
+                appendLine(fileUrl)
+            }
             if (extraInfo.isNotEmpty()) {
                 appendLine()
                 appendLine("【设备信息】")

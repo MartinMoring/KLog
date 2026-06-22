@@ -4,12 +4,12 @@ plugins {
     id 'maven-publish'
 }
 
-android {
+project.android {
     namespace 'com.aimei.logkit'
-    compileSdk 34
+    compileSdk 28
 
     defaultConfig {
-        minSdk 24
+        minSdk 21
         consumerProguardFiles "consumer-rules.pro"
     }
 
@@ -26,11 +26,13 @@ android {
     }
     kotlinOptions {
         jvmTarget = '1.8'
+        languageVersion = '1.6'
+        apiVersion = '1.6'
     }
     buildFeatures {
         viewBinding true
     }
-    packaging {
+    packagingOptions {
         resources {
             excludes += 'META-INF/NOTICE.md'
             excludes += 'META-INF/LICENSE.md'
@@ -41,10 +43,9 @@ android {
 }
 
 dependencies {
-    implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat
-    implementation libs.material
     implementation libs.androidx.recyclerview
+    implementation libs.androidx.lifecycle.runtime.ktx
     implementation libs.kotlinx.coroutines.android
     implementation libs.okhttp
     implementation libs.android.mail
@@ -58,7 +59,7 @@ afterEvaluate {
                 from components.release
                 groupId    = 'com.aimei'
                 artifactId = 'logkit'
-                version    = '1.0.1'
+                version    = '1.0.2'
             }
         }
     }
